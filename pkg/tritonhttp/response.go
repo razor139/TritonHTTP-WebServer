@@ -2,6 +2,9 @@ package tritonhttp
 
 import (
 	"io"
+	"os"
+	"sort"
+	"strconv"
 )
 
 type Response struct {
@@ -39,7 +42,23 @@ func (res *Response) Write(w io.Writer) error {
 // WriteStatusLine writes the status line of res to w, including the ending "\r\n".
 // For example, it could write "HTTP/1.1 200 OK\r\n".
 func (res *Response) WriteStatusLine(w io.Writer) error {
-	panic("todo")
+	//panic("todo")
+	statusLine := res.Proto + " " + strconv.Itoa(res.StatusCode) + " "
+	if res.StatusCode == 200 {
+		statusLine += "OK\r\n"
+	} else if res.StatusCode == 400 {
+		statusLine += "Bad Request\r\n"
+	} else if res.StatusCode == 404 {
+		statusLine += "Not Found\r\n"
+	} else {
+		return nil
+	}
+
+	_, err := w.Write([]byte(statusLine))
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // WriteSortedHeaders writes the headers of res to w, including the ending "\r\n".
@@ -47,11 +66,54 @@ func (res *Response) WriteStatusLine(w io.Writer) error {
 // For HTTP, there is no need to write headers in any particular order.
 // TritonHTTP requires to write in sorted order for the ease of testing.
 func (res *Response) WriteSortedHeaders(w io.Writer) error {
-	panic("todo")
+	//panic("todo")
+	var header string
+	keys := make([]string, 0, len(res.Header))
+	for key, _ := range res.Header {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		header += key + ":" + " " + res.Header[key] + "\r\n"
+	}
+	header += "\r\n"
+	_, err := w.Write([]byte(header))
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // WriteBody writes res' file content as the response body to w.
 // It doesn't write anything if there is no file to serve.
 func (res *Response) WriteBody(w io.Writer) error {
-	panic("todo")
+	//panic("todo")
+
+	if res.FilePath == "" {
+		return nil
+	}
+
+	f, err := os.Open(res.FilePath)
+	if err != nil {
+		return err
+	}
+
+	var buff1 []byte
+	buff := make([]byte, 100)
+	for {
+		n, err := f.Read(buff)
+		if err != nil {
+			if err != io.EOF {
+				return err
+			}
+			break
+		}
+		buff1 = append(buff1, buff[:n]...)
+	}
+	_, err1 := w.Write(buff1)
+	if err1 != nil {
+		return err
+	}
+	return nil
 }
