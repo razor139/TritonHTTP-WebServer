@@ -1,0 +1,15 @@
+GET /kitten.jpg HTTP/1.1
+HOsT: test
+kEY: val:12?#
+KEy1:     
+
+GET /subdir/hello.html HTTP/1.1
+Host: test
+
+GET /index.html/../index.xyz HTTP/1.1
+hoSt: test
+
+GET /subdir/hello.html HTTP/1.1
+Host: test
+Connection: close
+

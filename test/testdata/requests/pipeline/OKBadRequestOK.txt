@@ -5,6 +5,7 @@ GETT /index.html HTTP/1.1
 Host: test
 
 GET /index.html HTTP/1.1
-Host: test
+Host:    
+Fo-o: Ba\rr
 Connection: close
 

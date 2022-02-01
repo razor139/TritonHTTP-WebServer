@@ -1,0 +1,4 @@
+GET /../../e2e_test.go HTTP/1.1
+Host: MyHost
+Connection: close
+

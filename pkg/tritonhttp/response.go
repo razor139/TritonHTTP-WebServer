@@ -69,7 +69,7 @@ func (res *Response) WriteSortedHeaders(w io.Writer) error {
 	//panic("todo")
 	var header string
 	keys := make([]string, 0, len(res.Header))
-	for key, _ := range res.Header {
+	for key := range res.Header {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)

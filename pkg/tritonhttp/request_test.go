@@ -63,15 +63,15 @@ func TestReadGoodRequest(t *testing.T) {
 				"Host: test\r\n" +
 				"Connection: close\r\n" +
 				"Key1: val1\r\n" +
-				"Key2:   val2\r\n" +
+				"KEy-2:     val2:\r%^:\n  \r\n" +
 				"\r\n",
 			&Request{
 				Method: "GET",
 				URL:    "/index.html",
 				Proto:  "HTTP/1.1",
 				Header: map[string]string{
-					"Key1": "val1",
-					"Key2": "val2",
+					"Key1":  "val1",
+					"Key-2": "val2:\r%^:\n  ",
 				},
 				Host:  "test",
 				Close: true,

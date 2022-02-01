@@ -1,0 +1,5 @@
+GET /index.html HTTP/1.1
+Ho-st: MyHost
+Fo-o: Ba\nr
+Connection: close
+

@@ -1,0 +1,11 @@
+GET /index.html HTTP/1.1
+Host: test
+key1 : vak2
+
+GET /index.html HTTP/1.1
+Host: test
+
+GET /index.xyz HTTP/1.1
+Host: test
+Connection: close
+

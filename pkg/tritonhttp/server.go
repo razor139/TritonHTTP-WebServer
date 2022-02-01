@@ -117,9 +117,10 @@ func (s *Server) HandleConnection(conn net.Conn) {
 func (s *Server) HandleGoodRequest(req *Request) (res *Response) {
 	//panic("todo")
 	var serverRes Response
-	var rootDir string
+
 	// Hint: use the other methods below
 	reqURL := req.URL
+	//fmt.Println("After req parsing:", reqURL)
 	if reqURL[0] != '/' || req.Host == "" {
 		serverRes.HandleBadRequest()
 		return &serverRes
@@ -127,17 +128,11 @@ func (s *Server) HandleGoodRequest(req *Request) (res *Response) {
 	if reqURL[len(reqURL)-1] == '/' {
 		reqURL += "index.html"
 	}
+	//fmt.Println("After adding file path", reqURL)
 	fileLoc := filepath.Join(s.DocRoot, reqURL)
-	//fileLoc = path.Clean(fileLoc)
 
-	if s.DocRoot[len(s.DocRoot)-1] == '/' {
-		splitDir := strings.Split(s.DocRoot, "/")
-		rootDir = splitDir[len(splitDir)-2]
-	} else {
-		rootDir = s.DocRoot
-	}
 	// Revisit this
-	if strings.HasPrefix(fileLoc, rootDir) == false {
+	if strings.HasPrefix(fileLoc, s.DocRoot) == false {
 		serverRes.HandleNotFound(req)
 		return &serverRes
 	}

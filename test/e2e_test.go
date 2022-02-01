@@ -2,7 +2,9 @@ package test
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -34,14 +36,18 @@ func TestMain(m *testing.M) {
 	if err := serverCmd.Start(); err != nil {
 		log.Fatal(err)
 	}
-	defer serverCmd.Process.Kill()
 
 	// Wait a little bit for the server to set up.
 	// Otherwise we might get "connection refused".
 	time.Sleep(serverSetupTime * time.Second)
 
 	// Start running the test cases
-	os.Exit(m.Run())
+	code := m.Run()
+
+	// Kill the test server process
+	serverCmd.Process.Kill()
+
+	os.Exit(code)
 }
 
 func TestSingleRequest(t *testing.T) {
@@ -54,6 +60,24 @@ func TestSingleRequest(t *testing.T) {
 			&ResponseChecker{
 				StatusCode:  200,
 				FilePath:    filepath.Join(testDocRoot, "index.html"),
+				ContentType: contentTypeHTML,
+				Close:       true,
+			},
+		},
+		{
+			"OKSub",
+			&ResponseChecker{
+				StatusCode:  200,
+				FilePath:    filepath.Join(testDocRoot, "/subdir/index.html"),
+				ContentType: contentTypeHTML,
+				Close:       true,
+			},
+		},
+		{
+			"OKSubSub",
+			&ResponseChecker{
+				StatusCode:  200,
+				FilePath:    filepath.Join(testDocRoot, "/subdir/subsubdir/index.html"),
 				ContentType: contentTypeHTML,
 				Close:       true,
 			},
@@ -77,6 +101,31 @@ func TestSingleRequest(t *testing.T) {
 			"BadRequestTimeout",
 			&ResponseChecker{
 				StatusCode: 400,
+			},
+		},
+		{
+			"BadHostMissing",
+			&ResponseChecker{
+				StatusCode: 400,
+			},
+		},
+		{
+			"BadHeader",
+			&ResponseChecker{
+				StatusCode: 400,
+			},
+		},
+		{
+			"BadURL",
+			&ResponseChecker{
+				StatusCode: 400,
+			},
+		},
+		{
+			"BadRootEscape",
+			&ResponseChecker{
+				StatusCode: 404,
+				Close:      true,
 			},
 		},
 		{
@@ -119,6 +168,9 @@ func TestSingleRequest(t *testing.T) {
 			br := bufio.NewReader(f)
 			if err := tt.resChecker.Check(br); err != nil {
 				t.Fatal(err)
+			}
+			if _, err := br.ReadByte(); !errors.Is(err, io.EOF) {
+				t.Fatalf("response has extra bytes when it should end")
 			}
 		})
 	}
@@ -166,6 +218,39 @@ func TestPipelineRequest(t *testing.T) {
 				},
 			},
 		},
+		{
+			"BadRequestOKOK",
+			[]*ResponseChecker{
+				{
+					StatusCode: 400,
+				},
+			},
+		},
+		{
+			"OKNotFoundOK",
+			[]*ResponseChecker{
+				{
+					StatusCode:  200,
+					FilePath:    filepath.Join(testDocRoot, "kitten.jpg"),
+					ContentType: contentTypeJPG,
+					Close:       false,
+				},
+				{
+					StatusCode: 404,
+					Close:      false,
+				},
+				{
+					StatusCode:  200,
+					FilePath:    filepath.Join(testDocRoot, "/index.xyz"),
+					ContentType: "",
+					Close:       false,
+				},
+				{
+					StatusCode: 404,
+					Close:      true,
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -195,6 +280,9 @@ func TestPipelineRequest(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
+			if _, err := br.ReadByte(); !errors.Is(err, io.EOF) {
+				t.Fatalf("response has extra bytes when it should end")
+			}
 		})
 	}
 }
@@ -203,7 +291,7 @@ type concurrentTestSpec struct {
 	// reqPath is the path to the request file to send.
 	reqPath string
 
-	resChecker *ResponseChecker
+	resChecker []*ResponseChecker
 }
 
 // To test concurrent request handling, we send 2 requests.
@@ -221,20 +309,86 @@ func TestConcurrentRequest(t *testing.T) {
 			[]*concurrentTestSpec{
 				{
 					"testdata/requests/single/OKTimeout.txt",
-					&ResponseChecker{
-						StatusCode:  200,
-						FilePath:    filepath.Join(testDocRoot, "index.html"),
-						ContentType: contentTypeHTML,
-						Close:       false,
+					[]*ResponseChecker{
+						{
+							StatusCode:  200,
+							FilePath:    filepath.Join(testDocRoot, "index.html"),
+							ContentType: contentTypeHTML,
+							Close:       false,
+						},
 					},
 				},
 				{
 					"testdata/requests/single/OKBasic.txt",
-					&ResponseChecker{
-						StatusCode:  200,
-						FilePath:    filepath.Join(testDocRoot, "index.html"),
-						ContentType: contentTypeHTML,
-						Close:       true,
+					[]*ResponseChecker{
+						{
+							StatusCode:  200,
+							FilePath:    filepath.Join(testDocRoot, "index.html"),
+							ContentType: contentTypeHTML,
+							Close:       true,
+						},
+					},
+				},
+				{
+					"testdata/requests/single/BadHeader.txt",
+					[]*ResponseChecker{
+						{
+							StatusCode: 400,
+						},
+					},
+				},
+				{
+					"testdata/requests/single/OKSubSub.txt",
+					[]*ResponseChecker{
+						{
+							StatusCode:  200,
+							FilePath:    filepath.Join(testDocRoot, "/subdir/subsubdir/index.html"),
+							ContentType: contentTypeHTML,
+							Close:       true,
+						},
+					},
+				},
+				{
+					"testdata/requests/single/NotFoundTimeout.txt",
+					[]*ResponseChecker{
+						{
+							StatusCode: 404,
+							Close:      false,
+						},
+					},
+				},
+				{
+					"testdata/requests/single/BadRootEscape.txt",
+					[]*ResponseChecker{
+						{
+							StatusCode: 404,
+							Close:      true,
+						},
+					},
+				},
+				{
+					"testdata/requests/pipeline/OKNotFoundOK.txt",
+					[]*ResponseChecker{
+						{
+							StatusCode:  200,
+							FilePath:    filepath.Join(testDocRoot, "kitten.jpg"),
+							ContentType: contentTypeJPG,
+							Close:       false,
+						},
+						{
+							StatusCode: 404,
+							Close:      false,
+						},
+						{
+							StatusCode:  200,
+							FilePath:    filepath.Join(testDocRoot, "/index.xyz"),
+							ContentType: "",
+							Close:       false,
+						},
+						{
+							StatusCode: 404,
+							Close:      true,
+						},
 					},
 				},
 			},
@@ -271,8 +425,14 @@ func TestConcurrentRequest(t *testing.T) {
 						return
 					}
 					br := bufio.NewReader(f)
-					if err := spec.resChecker.Check(br); err != nil {
-						errChan <- err
+					for _, resChecker := range spec.resChecker {
+						if err := resChecker.Check(br); err != nil {
+							errChan <- err
+							return
+						}
+					}
+					if _, err := br.ReadByte(); !errors.Is(err, io.EOF) {
+						errChan <- fmt.Errorf("response has extra bytes when it should end")
 						return
 					}
 					errChan <- nil

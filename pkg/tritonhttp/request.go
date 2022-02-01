@@ -34,16 +34,20 @@ type Request struct {
 func ReadRequest(br *bufio.Reader) (req *Request, bytesReceived bool, err error) {
 	//panic("todo")
 	req = &Request{}
+	var assignHost int = 0
 	Header := make(map[string]string)
-	extraSpace := regexp.MustCompile(`\s+`)
+
 	// Read start line
 	line, err := ReadLine(br)
 	if err != nil {
-		return nil, false, err
+		return nil, (len(line) != 0), err
 	}
 
-	firstLineSpace := extraSpace.ReplaceAllString(line, " ")
-	firstLine := strings.SplitN(firstLineSpace, " ", 3)
+	firstLine := strings.Split(line, " ")
+	if len(firstLine) != 3 {
+		return nil, false, errors.New("Initial request line malformed")
+	}
+
 	if firstLine[0] == "GET" {
 		req.Method = "GET"
 	} else {
@@ -71,19 +75,28 @@ func ReadRequest(br *bufio.Reader) (req *Request, bytesReceived bool, err error)
 		}
 		if len(line) == 0 {
 			//fmt.Println(line, " Reached end of 1st req")
-			break
+			if assignHost == 1 {
+				break
+			} else {
+				return nil, false, errors.New("Bad CLRF in middle of request")
+			}
+
 		}
 
-		lineSpace := extraSpace.ReplaceAllString(line, " ")
-		var splitLine []string
+		headerRegex := regexp.MustCompile(`^([a-zA-Z0-9-]+):[ ]*(.*[\r]*[\n]*.*)$`)
+		splitLine := headerRegex.FindStringSubmatch(line)
 		//fmt.Println("Line split:", splitLine)
-		if strings.Contains(lineSpace, ":") {
-			splitLine = strings.SplitN(lineSpace, ":", 2)
-			key := splitLine[0]
-			if key == "Host" {
-				req.Host = splitLine[1][1:]
-			} else if key == "Connection" {
-				if splitLine[1][1:] == "close" {
+		if len(splitLine) == 3 {
+			key := splitLine[1]
+			if strings.EqualFold(key, "Host") {
+				if splitLine[2] == "" {
+					req.Host = "default"
+				} else {
+					req.Host = splitLine[2]
+				}
+				assignHost = 1
+			} else if strings.EqualFold(key, "Connection") {
+				if splitLine[2] == "close" {
 					req.Close = true
 				} else {
 					req.Close = false
@@ -91,14 +104,14 @@ func ReadRequest(br *bufio.Reader) (req *Request, bytesReceived bool, err error)
 			} else {
 				keyRegex := regexp.MustCompile("^[a-zA-Z0-9-]*$")
 				if keyRegex.MatchString(key) {
-					Header[key] = splitLine[1][1:]
+					Header[CanonicalHeaderKey(key)] = splitLine[2]
 				} else {
 					return nil, false, errors.New("Key is not alphanumeric with hyphen")
 				}
 			}
 
 		} else {
-			return nil, false, errors.New("Header missing colon")
+			return nil, false, errors.New("Header is malformed")
 		}
 	}
 
