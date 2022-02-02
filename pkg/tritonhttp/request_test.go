@@ -61,7 +61,7 @@ func TestReadGoodRequest(t *testing.T) {
 			"MiscHeaders",
 			"GET /index.html HTTP/1.1\r\n" +
 				"Host: test\r\n" +
-				"Connection: close\r\n" +
+				"coNNection:close\r\n" +
 				"Key1: val1\r\n" +
 				"KEy-2:     val2:\r%^:\n  \r\n" +
 				"\r\n",

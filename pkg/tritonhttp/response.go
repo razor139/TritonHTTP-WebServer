@@ -1,6 +1,7 @@
 package tritonhttp
 
 import (
+	"bufio"
 	"io"
 	"os"
 	"sort"
@@ -89,6 +90,7 @@ func (res *Response) WriteSortedHeaders(w io.Writer) error {
 // It doesn't write anything if there is no file to serve.
 func (res *Response) WriteBody(w io.Writer) error {
 	//panic("todo")
+	bw := bufio.NewWriter(w)
 
 	if res.FilePath == "" {
 		return nil
@@ -99,7 +101,7 @@ func (res *Response) WriteBody(w io.Writer) error {
 		return err
 	}
 
-	var buff1 []byte
+	//var buff1 []byte
 	buff := make([]byte, 100)
 	for {
 		n, err := f.Read(buff)
@@ -109,11 +111,19 @@ func (res *Response) WriteBody(w io.Writer) error {
 			}
 			break
 		}
-		buff1 = append(buff1, buff[:n]...)
+		if _, err := bw.Write(buff[:n]); err != nil {
+			return err
+		}
+		//buff1 = append(buff1, buff[:n]...)
 	}
-	_, err1 := w.Write(buff1)
-	if err1 != nil {
+
+	if err := bw.Flush(); err != nil {
 		return err
 	}
+
+	// _, err1 := w.Write(buff1)
+	// if err1 != nil {
+	// 	return err
+	// }
 	return nil
 }

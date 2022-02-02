@@ -13,7 +13,7 @@ run-tritonhttp:
 
 .PHONY: unit-test
 unit-test:
-	go test -v ./pkg/...
+	go test -count=1 -v ./pkg/...
 
 .PHONY: e2e-test
 e2e-test:
